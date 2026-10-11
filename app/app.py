@@ -1,17 +1,17 @@
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
 class BookCreator(BaseModel):
     title : str
     author : str
-    year : int | None = None
+    year : int | None = Field(default=None, ge=0, le=2027)
 
 class BookUpdate(BaseModel):
     title : str | None = None
     author : str | None = None
-    year : int | None = None
+    year : int | None = Field(default=None, ge=0, le=2027)
 
 class Book(BookCreator):
     id : int
@@ -27,16 +27,18 @@ def get_books():
 @app.post("/books", status_code=201)
 def create_book(data : BookCreator):
     global next_id
-    book = Book(id = next_id, **data.model_dump)
+    book = Book(id = next_id, **data.model_dump())
     books.append(book)
     next_id += 1
     return book
 
-@app.put("/books/{id}", response_model=Book)
-def get_book():
-    for book in books:
+@app.put("/books/{id}", response_model=Book, status_code=status.HTTP_200_OK)
+def replace_book(id: int, new_data: BookCreator):
+    for index, book in enumerate(books):
         if book.id == id : 
-            return book
+            replaced_book = Book(id=id, **new_data.model_dump())
+            books[index] = replaced_book
+            return replaced_book
     raise HTTPException(status_code=404, detail="Book Not Found!")
 
 @app.patch("/books/{id}", response_model=Book, status_code=status.HTTP_200_OK)
